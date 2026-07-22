@@ -3,10 +3,13 @@ import torch
 import torch.nn as nn
 from torchvision import models, transforms
 from PIL import Image
+from cnn import CNN
 import numpy as np
 import io
 import os
 import glob
+import timm
+
 
 # ─────────────────────────────────────────
 # Page config
@@ -177,17 +180,19 @@ def build_densenet(num_classes):
     return m
 
 def build_vit(num_classes):
-    m = models.vit_b_16(weights=None)
-    m.heads.head = nn.Linear(m.heads.head.in_features, num_classes)
+    m = timm.create_model('vit_tiny_patch16_224', pretrained=False, num_classes=num_classes)
     return m
+
+def build_custom_cnn(num_classes):
+    return CNN(num_classes=num_classes)
 
 MODEL_REGISTRY = {
     "ResNet-50":    {"file": "resnet50_model.pt",    "builder": build_resnet50,   "ready": True},
     "EfficientNet": {"file": "efficientnet_model.pt","builder": build_efficientnet,"ready": False},
     "MobileNet":    {"file": "mobilenet_model.pt",   "builder": build_mobilenet,  "ready": False},
     "DenseNet":     {"file": "densenet_model.pt",    "builder": build_densenet,   "ready": False},
-    "ViT":          {"file": "vit_model.pt",         "builder": build_vit,        "ready": False},
-    "Custom CNN":   {"file": "custom_cnn_model.pt",  "builder": None,             "ready": False},
+    "Visual Transformer":  {"file": "vit_model.pt",  "builder": build_vit,        "ready": True},
+    "Custom CNN":   {"file": "custom_cnn_model.pt",  "builder": build_custom_cnn, "ready": True},
 }
 
 # Auto-detect which models are actually available on disk
@@ -198,14 +203,25 @@ for name, cfg in MODEL_REGISTRY.items():
 # ─────────────────────────────────────────
 # Transform (val pipeline — no augmentation)
 # ─────────────────────────────────────────
-infer_transform = transforms.Compose([
+MODEL_TRANSFORMS = {
+    "Visual Transformer": transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(IMG_SIZE),
+        transforms.ToTensor(),
+        # vit pretrained model works better with imagenet mean and std
+        transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                             std=[0.229, 0.224, 0.225]),
+    ]),
+}
+
+# Default transform used by all other models (dataset-specific stats)
+default_transform = transforms.Compose([
     transforms.Resize(256),
     transforms.CenterCrop(IMG_SIZE),
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.3621, 0.3615, 0.3383],
-                         std =[0.1419, 0.1417, 0.1363]),
+                         std=[0.1419, 0.1417, 0.1363]),
 ])
-
 # ─────────────────────────────────────────
 # Load model (cached)
 # ─────────────────────────────────────────
@@ -228,8 +244,9 @@ def load_model(model_name):
 # ─────────────────────────────────────────
 # Inference
 # ─────────────────────────────────────────
-def predict(model, img: Image.Image):
-    tensor = infer_transform(img.convert("RGB")).unsqueeze(0)
+def predict(model, img: Image.Image, model_name):
+    transform = MODEL_TRANSFORMS.get(model_name, default_transform)
+    tensor = transform(img.convert("RGB")).unsqueeze(0)
     with torch.no_grad():
         logits = model(tensor)
         probs  = torch.softmax(logits, dim=1).squeeze().tolist()
@@ -268,6 +285,7 @@ with col_left:
         available_models,
         label_visibility="collapsed"
     )
+
 
     # Status grid
     status_html = ""
@@ -308,7 +326,7 @@ with col_right:
             with st.spinner("Classifying…"):
                 try:
                     model = load_model(selected_model)
-                    pred_class, probs = predict(model, image)
+                    pred_class, probs = predict(model, image, selected_model)
 
                     # Predicted class
                     conf = max(probs) * 100
