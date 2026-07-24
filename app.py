@@ -180,7 +180,10 @@ def build_bilinear_cnn(num_classes):
 
 def build_densenet(num_classes):
     m = models.densenet121(weights=None)
-    m.classifier = nn.Linear(m.classifier.in_features, num_classes)
+    m.classifier = nn.Sequential(
+        nn.Dropout(p=0.4),
+        nn.Linear(m.classifier.in_features, num_classes)
+    )
     return m
 
 def build_vit(num_classes):
@@ -194,7 +197,7 @@ MODEL_REGISTRY = {
     "ResNet-50":    {"file": "resnet50_final.pt",    "builder": build_resnet50,   "ready": True},
     "EfficientNet-B3": {"file": "efficientnet_b3_latest.pt","builder": build_efficientnet,"ready": True},
     "Bilinear CNN":    {"file": "bilinear_cnn_final.pt",   "builder": build_bilinear_cnn,  "ready": True},
-    "DenseNet121":     {"file": "densenet_model.pt",    "builder": build_densenet,   "ready": True},
+    "DenseNet121":     {"file": "best_densenet121.pth",    "builder": build_densenet,   "ready": True},
     "Visual Transformer":  {"file": "vit_model.pt",  "builder": build_vit,        "ready": True},
     "Custom CNN":   {"file": "custom_cnn_model.pt",  "builder": build_custom_cnn, "ready": True},
 }
