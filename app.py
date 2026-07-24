@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 from torchvision import models, transforms
 from PIL import Image
-from cnn import CNN
+from cnn import CNN, BilinearCNN
 import numpy as np
 import io
 import os
@@ -169,10 +169,10 @@ def build_efficientnet(num_classes):
     m.classifier[1] = nn.Linear(m.classifier[1].in_features, num_classes)
     return m
 
-def build_mobilenet(num_classes):
-    m = models.mobilenet_v3_small(weights=None)
-    m.classifier[3] = nn.Linear(m.classifier[3].in_features, num_classes)
-    return m
+def build_bilinear_cnn(num_classes):
+    # pretrained=False / freeze_backbone=False: we're loading fully-trained
+    # weights for inference, not initializing for training.
+    return BilinearCNN(num_classes, pretrained=False, freeze_backbone=False)
 
 def build_densenet(num_classes):
     m = models.densenet121(weights=None)
@@ -188,9 +188,9 @@ def build_custom_cnn(num_classes):
 
 MODEL_REGISTRY = {
     "ResNet-50":    {"file": "resnet50_model.pt",    "builder": build_resnet50,   "ready": True},
-    "EfficientNet": {"file": "efficientnet_model.pt","builder": build_efficientnet,"ready": False},
-    "MobileNet":    {"file": "mobilenet_model.pt",   "builder": build_mobilenet,  "ready": False},
-    "DenseNet":     {"file": "densenet_model.pt",    "builder": build_densenet,   "ready": False},
+    "EfficientNet": {"file": "efficientnet_model.pt","builder": build_efficientnet,"ready": True},
+    "Bilinear CNN":    {"file": "bilinear_cnn_final.pt",   "builder": build_bilinear_cnn,  "ready": True},
+    "DenseNet121":     {"file": "densenet_model.pt",    "builder": build_densenet,   "ready": True},
     "Visual Transformer":  {"file": "vit_model.pt",  "builder": build_vit,        "ready": True},
     "Custom CNN":   {"file": "custom_cnn_model.pt",  "builder": build_custom_cnn, "ready": True},
 }
@@ -233,7 +233,10 @@ def load_model(model_name):
     if builder is None:
         raise NotImplementedError(f"Builder for {model_name} not yet defined.")
     model = builder(len(CLASSES))
-    state = torch.load(path, map_location="cpu")
+    # weights_only=False: these checkpoints bundle plain Python metadata
+    # (classes, norm stats, etc.) alongside the tensors, which newer
+    # torch versions won't unpickle under the weights_only=True default.
+    state = torch.load(path, map_location="cpu", weights_only=False)
     # Handle both raw state_dict and checkpoint dict
     if isinstance(state, dict) and "state_dict" in state:
         state = state["state_dict"]
