@@ -130,6 +130,22 @@ html, body, [class*="css"] {
     letter-spacing: 0.05em;
 }
 
+.default-model-tag {
+    display: inline-block;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.72rem;
+    font-weight: 600;
+
+    background: #DCFCE7;      /* light green */
+    color: #166534;           /* dark green text */
+
+    border: 1px solid #22C55E;
+    border-radius: 20px;
+
+    padding: 0.35rem 0.8rem;
+    margin-top: 0.5rem;
+}
+
 /* Status dot */
 .dot-ready { color: #22c55e; }
 .dot-na    { color: #374151; }
@@ -194,10 +210,10 @@ def build_custom_cnn(num_classes):
     return CNN(num_classes=num_classes)
 
 MODEL_REGISTRY = {
+    "DenseNet121":     {"file": "best_densenet121.pth",    "builder": build_densenet,   "ready": True},
     "ResNet-50":    {"file": "resnet50_final.pt",    "builder": build_resnet50,   "ready": True},
     "EfficientNet-B3": {"file": "efficientnet_b3_latest.pt","builder": build_efficientnet,"ready": True},
     "Bilinear CNN":    {"file": "bilinear_cnn_final.pt",   "builder": build_bilinear_cnn,  "ready": True},
-    "DenseNet121":     {"file": "best_densenet121.pth",    "builder": build_densenet,   "ready": True},
     "Visual Transformer":  {"file": "vit_model.pt",  "builder": build_vit,        "ready": True},
     "Custom CNN":   {"file": "custom_cnn_model.pt",  "builder": build_custom_cnn, "ready": True},
 }
@@ -290,11 +306,29 @@ with col_left:
         st.error("No model weights found in `model/` folder.")
         st.stop()
 
+    # Set DenseNet121 as the default deployed model
+    DEFAULT_MODEL = "DenseNet121"
+
+    # Find the index of the default model in the available list
+    default_index = (
+        available_models.index(DEFAULT_MODEL)
+        if DEFAULT_MODEL in available_models
+        else 0
+    )
+
     selected_model = st.selectbox(
         "Select model",
         available_models,
+        index=default_index,   # DenseNet121 appears selected by default
         label_visibility="collapsed"
     )
+
+    # Highlight the deployed default model
+    if selected_model == DEFAULT_MODEL:
+        st.markdown(
+            "<div class='default-model-tag'>BEST PERFORMING MODEL (DEFAULT)</div>",
+            unsafe_allow_html=True
+        )
 
 
     # Status grid
@@ -303,7 +337,7 @@ with col_left:
         cfg  = MODEL_REGISTRY[name]
         dot  = "dot-ready" if cfg["available"] and cfg["builder"] else "dot-na"
         icon = "●" if cfg["available"] and cfg["builder"] else "○"
-        status_html += f'<span class="{dot}" style="margin-right:1rem;font-size:0.8rem">{icon} {name}</span>'
+        status_html += f'<span class="{dot}" style="margin-right:1rem;font-size:0.8rem;white-space:nowrap">{icon} {name}</span>'
     st.markdown(f'<div style="margin-top:0.8rem">{status_html}</div>', unsafe_allow_html=True)
 
     # ── Input mode ──
