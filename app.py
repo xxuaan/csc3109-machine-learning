@@ -210,7 +210,7 @@ def build_custom_cnn(num_classes):
     return CNN(num_classes=num_classes)
 
 MODEL_REGISTRY = {
-    "DenseNet121":     {"file": "best_densenet121.pth",    "builder": build_densenet,   "ready": True},
+    "DenseNet121":     {"file": "best_densenet121.pt",    "builder": build_densenet,   "ready": True},
     "ResNet-50":    {"file": "resnet50_final.pt",    "builder": build_resnet50,   "ready": True},
     "EfficientNet-B3": {"file": "efficientnet_b3_latest.pt","builder": build_efficientnet,"ready": True},
     "Bilinear CNN":    {"file": "bilinear_cnn_final.pt",   "builder": build_bilinear_cnn,  "ready": True},
